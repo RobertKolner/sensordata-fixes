@@ -9,6 +9,7 @@ from http import HTTPStatus
 
 from dotenv import load_dotenv
 from flask import Flask, request, abort
+from flask import jsonify
 from pydantic import BaseModel, ValidationError
 
 from webhook_model import WebhookRequestBody
@@ -99,7 +100,9 @@ def webhook():
 
 @app.route("/api/sensors/", methods=["GET"])
 def current_state():
-    return {k: v.model_dump() for k, v in current_state_map.items()}, HTTPStatus.OK
+    # Optional: sort by timestamp descending
+    sorted_data = dict(sorted(current_state_map.items(), key=lambda item: item[1].timestamp, reverse=True))
+    return jsonify({k: v.model_dump() for k, v in sorted_data.items()}), HTTPStatus.OK
 
 if __name__ == "__main__":
     if hmac_secret_key is None:
