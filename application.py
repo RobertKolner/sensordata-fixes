@@ -56,14 +56,6 @@ def parse_authorization_header() -> tuple[str, str]:
     return signature, nonce
 
 
-def verify_signature(payload, signature, nonce):
-    key = (hmac_secret_key + nonce).encode("utf-8")
-    computed_hmac = hmac.new(key, payload, hashlib.sha256).digest()
-    computed_signature = base64.b64encode(computed_hmac).decode()
-    if not hmac.compare_digest(computed_signature, signature):
-        raise ValueError(f"Invalid signature: {computed_signature} != {signature}")
-
-
 def handle_webhook(webhook_request: WebhookRequestBody):
     for item in webhook_request.root:
         message_id = item.headers.message_id
