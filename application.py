@@ -14,6 +14,17 @@ from pydantic import BaseModel, ValidationError
 
 from webhook_model import WebhookRequestBody
 
+DEVICE_SN_LABELS = {
+    "00E6D504": "Lab 1",
+    "00D6FE76": "Lab 2",
+    "00B66B1D": "Lab 3",
+    "00E96AA7": "Lab 4",
+    "00E4C3FD": "Lab 5",
+    "0087BA71": "Lab 6",
+    "004326FE": "Pressure",
+    "100D99F666": "Temp & Humidity"
+}
+
 # Load configuration
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -70,9 +81,10 @@ def handle_webhook(webhook_request: WebhookRequestBody):
         logging.info("processing new message_id=%s", message_id)
 
         for sensor in item.payload:
-            last_state = current_state_map.get(sensor.measurement.type, None)
+            device_sn = sensor.device_sn
+            last_state = current_state_map.get(device_sn, None)
             if last_state is None or sensor.event_date > last_state.timestamp:
-                current_state_map[sensor.measurement.type] = CurrentState(
+                current_state_map[device_sn] = CurrentState(
                     timestamp=sensor.event_date, value=sensor.measurement.value
                 )
 
@@ -102,7 +114,11 @@ def webhook():
 def current_state():
     # Optional: sort by timestamp descending
     sorted_data = dict(sorted(current_state_map.items(), key=lambda item: item[1].timestamp, reverse=True))
-    return jsonify({k: v.model_dump() for k, v in sorted_data.items()}), HTTPStatus.OK
+    mapped_data = {
+        DEVICE_SN_LABELS.get(k, k): v.model_dump()
+        for k, v in current_state_map.items()
+    }
+    return jsonify(mapped_data), HTTPStatus.OK
 
 if __name__ == "__main__":
     if hmac_secret_key is None:
