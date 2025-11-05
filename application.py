@@ -101,9 +101,7 @@ def webhook():
 
 @app.route("/api/sensors/", methods=["GET"])
 def current_state():
-    sorted_data = dict(sorted(current_state_map.items(), key=lambda item: item[1].timestamp, reverse=True))
-    return jsonify(mapped_data), HTTPStatus.OK
-    }
+    return {k: v.model_dump() for k, v in current_state_map.items()}, HTTPStatus.OK
     
 
 if __name__ == "__main__":
