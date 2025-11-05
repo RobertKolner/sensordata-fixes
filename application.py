@@ -14,17 +14,6 @@ from pydantic import BaseModel, ValidationError
 
 from webhook_model import WebhookRequestBody
 
-DEVICE_SN_LABELS = {
-    "00E6D504": "Lab 1",
-    "00D6FE76": "Lab 2",
-    "00B66B1D": "Lab 3",
-    "00E96AA7": "Lab 4",
-    "00E4C3FD": "Lab 5",
-    "0087BA71": "Lab 6",
-    "004326FE": "Pressure",
-    "100D99F666": "Temp & Humidity"
-}
-
 # Load configuration
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -112,13 +101,10 @@ def webhook():
 
 @app.route("/api/sensors/", methods=["GET"])
 def current_state():
-    # Optional: sort by timestamp descending
     sorted_data = dict(sorted(current_state_map.items(), key=lambda item: item[1].timestamp, reverse=True))
-    mapped_data = {
-        DEVICE_SN_LABELS.get(k, k): v.model_dump()
-        for k, v in current_state_map.items()
-    }
     return jsonify(mapped_data), HTTPStatus.OK
+    }
+    
 
 if __name__ == "__main__":
     if hmac_secret_key is None:
