@@ -9,6 +9,7 @@ from http import HTTPStatus
 
 from dotenv import load_dotenv
 from flask import Flask, request, abort
+from flask import jsonify
 from pydantic import BaseModel, ValidationError
 
 from webhook_model import WebhookRequestBody
@@ -55,51 +56,24 @@ def parse_authorization_header() -> tuple[str, str]:
     return signature, nonce
 
 
-def verify_signature(payload, signature, nonce):
-    key = (hmac_secret_key + nonce).encode("utf-8")
-    computed_hmac = hmac.new(key, payload, hashlib.sha256).digest()
-    computed_signature = base64.b64encode(computed_hmac).decode()
-    if not hmac.compare_digest(computed_signature, signature):
-        raise ValueError(f"Invalid signature: {computed_signature} != {signature}")
-
-
 def handle_webhook(webhook_request: WebhookRequestBody):
     for item in webhook_request.root:
         message_id = item.headers.message_id
         logging.info("processing new message_id=%s", message_id)
 
         for sensor in item.payload:
-            last_state = current_state_map.get(sensor.measurement.type, None)
+            device_sn = sensor.device_sn
+            last_state = current_state_map.get(device_sn, None)
             if last_state is None or sensor.event_date > last_state.timestamp:
-                current_state_map[sensor.measurement.type] = CurrentState(
+                current_state_map[device_sn] = CurrentState(
                     timestamp=sensor.event_date, value=sensor.measurement.value
                 )
-
-
-@app.route("/api/sensors/", methods=["POST"])
-def webhook():
-    logger.info("webhook triggered")
-
-    try:
-        signature, nonce = parse_authorization_header()
-        verify_signature(request.data, signature, nonce)
-    except ValueError as e:
-        logging.error("authorization error: %s", str(e))
-        abort(HTTPStatus.UNAUTHORIZED)
-
-    try:
-        request_body = WebhookRequestBody.model_validate_json(request.data)
-    except ValidationError as e:
-        abort(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
-
-    logger.info("received body with %d items", len(request_body.root))
-    handle_webhook(request_body)
-    return "", HTTPStatus.NO_CONTENT
 
 
 @app.route("/api/sensors/", methods=["GET"])
 def current_state():
     return {k: v.model_dump() for k, v in current_state_map.items()}, HTTPStatus.OK
+    
 
 if __name__ == "__main__":
     if hmac_secret_key is None:
