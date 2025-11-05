@@ -78,27 +78,6 @@ def handle_webhook(webhook_request: WebhookRequestBody):
                 )
 
 
-@app.route("/api/sensors/", methods=["POST"])
-def webhook():
-    logger.info("webhook triggered")
-
-    try:
-        signature, nonce = parse_authorization_header()
-        verify_signature(request.data, signature, nonce)
-    except ValueError as e:
-        logging.error("authorization error: %s", str(e))
-        abort(HTTPStatus.UNAUTHORIZED)
-
-    try:
-        request_body = WebhookRequestBody.model_validate_json(request.data)
-    except ValidationError as e:
-        abort(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
-
-    logger.info("received body with %d items", len(request_body.root))
-    handle_webhook(request_body)
-    return "", HTTPStatus.NO_CONTENT
-
-
 @app.route("/api/sensors/", methods=["GET"])
 def current_state():
     return {k: v.model_dump() for k, v in current_state_map.items()}, HTTPStatus.OK
