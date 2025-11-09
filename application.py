@@ -1,13 +1,12 @@
-import json
-import logging
+import base64
+import binascii
 import logging
 import os
 from datetime import datetime
 from http import HTTPStatus
-from typing import Literal
-from unittest import case
 
 import flask
+from flask_cors import CORS
 from dotenv import load_dotenv
 from flask import Flask, request
 from pydantic import BaseModel, TypeAdapter
@@ -18,9 +17,12 @@ logging.basicConfig(level=logging.INFO)
 debug = os.getenv("DEBUG") in ["true", "True", "1"]
 logger = logging.getLogger(__name__)
 port = int(os.environ.get("PORT", 8000))
+expected_user = os.environ.get("AUTH_USER", None)
+expected_password = os.environ.get("AUTH_PASSWORD", None)
 
 # Set up the application
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 
 # Our latest readings; this is going to be our "memory"
@@ -78,20 +80,53 @@ def handle_webhook() -> bool:
     return True
 
 
+def authenticate() -> bool:
+    if not expected_user and not expected_password:
+        return True
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return False
+
+    parts = auth_header.split()
+    if len(parts) != 2:
+        return False
+
+    if parts[0] != "Basic":
+        return False
+
+    try:
+        auth_value = base64.b64decode(parts[1]).decode("utf-8")
+        user, password = auth_value.split(":")
+    except binascii.Error:
+        return False
+    except ValueError:
+        return False
+
+    if user != expected_user:
+        return False
+    if password != expected_password:
+        return False
+    return True
+
 @app.route("/api/sensors/", methods=["GET"])
 def handle_get():
+    resp = flask.Response()
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+
     if handle_webhook():
-        return "", HTTPStatus.NO_CONTENT
+        return resp, HTTPStatus.NO_CONTENT
+
+    # Ensure there's at least rudimentary security to get the data out
+    if not authenticate():
+        return resp, HTTPStatus.UNAUTHORIZED
 
     type_adapter = TypeAdapter(dict[str, CurrentState])
-
     resp = flask.Response(
         type_adapter.dump_json(current_state_map),
     )
     resp.content_type = "application/json"
-    resp.headers['Access-Control-Allow-Origin'] = '*'
-    resp.status = HTTPStatus.OK
-    return resp
+    return resp, HTTPStatus.OK
 
 
 if __name__ == "__main__":

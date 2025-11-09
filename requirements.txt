@@ -1,4 +1,5 @@
 dotenv
 flask
+flask-cors
 pydantic
 requests
