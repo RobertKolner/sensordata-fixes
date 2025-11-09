@@ -119,6 +119,7 @@ def handle_get():
 
     # Ensure there's at least rudimentary security to get the data out
     if not authenticate():
+        resp.headers["WWW-Authenticate"] = "Basic"
         return resp, HTTPStatus.UNAUTHORIZED
 
     type_adapter = TypeAdapter(dict[str, CurrentState])
