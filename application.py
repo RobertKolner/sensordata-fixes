@@ -1,3 +1,4 @@
+import json
 import logging
 import logging
 import os
@@ -6,9 +7,10 @@ from http import HTTPStatus
 from typing import Literal
 from unittest import case
 
+import flask
 from dotenv import load_dotenv
 from flask import Flask, request
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 # Load configuration
 load_dotenv()
@@ -80,7 +82,16 @@ def handle_webhook() -> bool:
 def handle_get():
     if handle_webhook():
         return "", HTTPStatus.NO_CONTENT
-    return {k: v.model_dump() for k, v in current_state_map.items()}, HTTPStatus.OK
+
+    type_adapter = TypeAdapter(dict[str, CurrentState])
+
+    resp = flask.Response(
+        type_adapter.dump_json(current_state_map),
+    )
+    resp.content_type = "application/json"
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    resp.status = HTTPStatus.OK
+    return resp
 
 
 if __name__ == "__main__":
